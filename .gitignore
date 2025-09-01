@@ -1,0 +1,10 @@
+Ignore local dependencies folder
+/node_modules
+
+Ignore the local secrets file
+.env
+
+Ignore the main credentials file as a safety measure
+credentials.json
+
+.DS_Store

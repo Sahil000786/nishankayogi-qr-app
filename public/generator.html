@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barcode Generator - Nishankayogi</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f4f9; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 40px auto; padding: 30px; background: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }
+        h1 { color: #5a2d82; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border-bottom: 1px solid #ddd; text-align: left; }
+        th { background-color: #f9f9f9; }
+        .btn { background-color: #1e88e5; color: white; padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; }
+        .btn:hover { background-color: #1565c0; }
+        .back-link { display: inline-block; margin-top: 30px; color: #1e88e5; font-weight: bold; }
+        #qr-container { margin-top: 30px; }
+        #qr-container img { max-width: 250px; border: 5px solid #eee; border-radius: 10px; }
+        #error-message, #loading-message { color: #d32f2f; font-weight: bold; margin-top: 20px; }
+        #loading-message { color: #777; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Barcode Generator</h1>
+        <p>Select an order to generate a QR code ready for printing.</p>
+
+        <div id="loading-message">Loading orders from Google Sheet...</div>
+        <div id="error-message"></div>
+        <table id="orders-table" style="display:none;">
+            <thead>
+                <tr>
+                    <th>Order ID</th>
+                    <th>Customer Name</th>
+                    <th>Type</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="orders-tbody">
+            </tbody>
+        </table>
+
+        <div id="qr-container"></div>
+        
+        <a href="/" class="back-link">Back to Dashboard</a>
+    </div>
+
+    <script>
+        const loadingMessage = document.getElementById('loading-message');
+        const errorMessage = document.getElementById('error-message');
+        const ordersTable = document.getElementById('orders-table');
+        const ordersTbody = document.getElementById('orders-tbody');
+        const qrContainer = document.getElementById('qr-container');
+
+        async function fetchOrders() {
+            try {
+                const response = await fetch('/api/orders');
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Failed to fetch orders.');
+                }
+                const orders = await response.json();
+                
+                loadingMessage.style.display = 'none';
+                if (orders.length === 0) {
+                    errorMessage.textContent = 'No orders found in your Google Sheet.';
+                    return;
+                }
+                
+                ordersTable.style.display = 'table';
+                ordersTbody.innerHTML = '';
+                orders.forEach(order => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${order.order_id}</td>
+                        <td>${order.customer_name}</td>
+                        <td>${order.customer_type}</td>
+                        <td><button class="btn" onclick="fetchAndDisplayQrCode('${order.order_id}')">Generate QR</button></td>
+                    `;
+                    ordersTbody.appendChild(row);
+                });
+            } catch (error) {
+                loadingMessage.style.display = 'none';
+                errorMessage.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function fetchAndDisplayQrCode(orderId) {
+            qrContainer.innerHTML = '<p>Generating QR Code...</p>';
+            errorMessage.textContent = '';
+            try {
+                const response = await fetch(`/generate-qr?order_id=${orderId}`);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || 'Server returned an error.');
+                }
+                const imageBlob = await response.blob();
+                const imageUrl = URL.createObjectURL(imageBlob);
+                qrContainer.innerHTML = `
+                    <h3>QR Code for Order ${orderId}</h3>
+                    <img src="${imageUrl}" alt="QR Code for ${orderId}">
+                    <p>Right-click the image to save it for printing.</p>
+                `;
+            } catch (error) {
+                qrContainer.innerHTML = '';
+                errorMessage.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', fetchOrders);
+    </script>
+</body>
+</html>

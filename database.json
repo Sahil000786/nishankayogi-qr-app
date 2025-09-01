@@ -1,0 +1,17 @@
+[
+  {
+    "order_id": "NK1001",
+    "customer_name": "Priya Sharma",
+    "customer_type": "nyka"
+  },
+  {
+    "order_id": "NK1002",
+    "customer_name": "Anjali Verma",
+    "customer_type": "apsara"
+  },
+  {
+    "order_id": "NK1003",
+    "customer_name": "Rohan Singh",
+    "customer_type": "devika"
+  }
+]

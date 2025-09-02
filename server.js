@@ -5,8 +5,6 @@ const { google } = require('googleapis');
 const { GoogleAuth } = require('google-auth-library');
 
 // --- UNIVERSAL CONFIGURATION ---
-// This code will automatically use the correct credentials for local or live environments.
-
 // This is your Sheet ID.
 const SHEET_ID = '1aOv6KJBw4nbbbyqtkTcDWt5TNnWL5ttRMuQpejWobxA';
 // --- END OF CONFIGURATION ---
@@ -20,17 +18,15 @@ app.use(express.static('public'));
 // This function smartly chooses the right authentication method.
 async function getAuthenticatedClient() {
     let auth;
-    // Check if we are running on Vercel by looking for Vercel's environment variables.
-    if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
-        console.log("Authenticating with Vercel Environment Variables...");
-        const RAW_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY || '';
-        // This line is crucial to fix formatting issues in Vercel
-        const PRIVATE_KEY = RAW_PRIVATE_KEY.replace(/\\n/g, '\n');
+    
+    // Check if we are running on Vercel and have the Base64 secret.
+    if (process.env.GOOGLE_CREDENTIALS_BASE64) {
+        console.log("Authenticating with Vercel Base64 credentials...");
+        // Decode the Base64 secret back into the original JSON text.
+        const credentialsJson = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf-8');
+        const credentials = JSON.parse(credentialsJson);
         auth = new GoogleAuth({
-            credentials: {
-                client_email: process.env.GOOGLE_CLIENT_EMAIL,
-                private_key: PRIVATE_KEY,
-            },
+            credentials,
             scopes: 'https://www.googleapis.com/auth/spreadsheets',
         });
     } else {
@@ -93,7 +89,6 @@ app.get('/generate-qr', async (req, res) => {
         const order = orders.find(o => o.order_id === order_id);
         if (!order) return res.status(404).send('Error: Order ID not found.');
         
-        // Dynamically create the domain for localhost or Vercel
         const domain = req.headers.host.includes('localhost') 
             ? `http://${req.headers.host}` 
             : `https://${req.headers.host}`;
@@ -108,7 +103,6 @@ app.get('/generate-qr', async (req, res) => {
     }
 });
 
-// This endpoint is used by the thank you pages
 app.get('/api/order/:orderId', async (req, res) => {
     try {
         const { orderId } = req.params;
@@ -124,7 +118,6 @@ app.get('/api/order/:orderId', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
 
 app.listen(PORT, () => {
     console.log(`✅ Server is running on http://localhost:${PORT}`);

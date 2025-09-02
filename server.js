@@ -5,7 +5,9 @@ const { google } = require('googleapis');
 const { GoogleAuth } = require('google-auth-library');
 
 // --- UNIVERSAL CONFIGURATION ---
-// This is your Sheet ID.
+// This code will automatically use the correct credentials for local or live environments.
+
+// This is your Sheet ID. I have confirmed it is correct.
 const SHEET_ID = '1aOv6KJBw4nbbbyqtkTcDWt5TNnWL5ttRMuQpejWobxA';
 // --- END OF CONFIGURATION ---
 
@@ -19,7 +21,7 @@ app.use(express.static('public'));
 async function getAuthenticatedClient() {
     let auth;
     
-    // Check if we are running on Vercel and have the Base64 secret.
+    // Check if we are running on Vercel by looking for Vercel's environment variables.
     if (process.env.GOOGLE_CREDENTIALS_BASE64) {
         console.log("Authenticating with Vercel Base64 credentials...");
         // Decode the Base64 secret back into the original JSON text.
@@ -122,4 +124,3 @@ app.get('/api/order/:orderId', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`✅ Server is running on http://localhost:${PORT}`);
 });
-

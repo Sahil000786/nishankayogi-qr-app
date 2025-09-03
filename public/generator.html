@@ -54,6 +54,7 @@
 
         async function fetchOrders() {
             try {
+                // This call is correct and works
                 const response = await fetch('/api/orders');
                 if (!response.ok) {
                     const err = await response.json();
@@ -89,18 +90,25 @@
             qrContainer.innerHTML = '<p>Generating QR Code...</p>';
             errorMessage.textContent = '';
             try {
-                const response = await fetch(`/generate-qr?order_id=${orderId}`);
+                // --- THIS IS THE CRITICAL FIX ---
+                // We now call the /api/generate-qr endpoint
+                const response = await fetch(`/api/generate-qr?order_id=${orderId}`);
+                // --- END OF CRITICAL FIX ---
+
                 if (!response.ok) {
                     const errorText = await response.text();
                     throw new Error(errorText || 'Server returned an error.');
                 }
+                
                 const imageBlob = await response.blob();
                 const imageUrl = URL.createObjectURL(imageBlob);
+
                 qrContainer.innerHTML = `
                     <h3>QR Code for Order ${orderId}</h3>
                     <img src="${imageUrl}" alt="QR Code for ${orderId}">
                     <p>Right-click the image to save it for printing.</p>
                 `;
+
             } catch (error) {
                 qrContainer.innerHTML = '';
                 errorMessage.textContent = `Error: ${error.message}`;

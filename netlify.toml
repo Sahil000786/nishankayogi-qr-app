@@ -1,0 +1,14 @@
+[build]
+  command = "npm install"
+  publish = "public"
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/server/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/generate-qr"
+  to = "/.netlify/functions/server/generate-qr"
+  status = 200

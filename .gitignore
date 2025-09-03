@@ -1,9 +1,8 @@
-Ignore local dependencies folder
+Ignore all dependencies
 /node_modules
 
-CRITICAL: Ignore the secret credentials file
+Ignore secret credentials file
 credentials.json
 
 Ignore system files
 .DS_Store
-.vercel

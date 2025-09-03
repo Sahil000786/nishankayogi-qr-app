@@ -1,15 +1,16 @@
 {
-  "name": "nishankayogi-qr-app-final",
+  "name": "nishankayogi-netlify-app",
   "version": "1.0.0",
-  "description": "Final executable QR code system for Nishankayogi.",
-  "main": "server.js",
+  "description": "Final QR code system for Nishankayogi on Netlify.",
+  "main": "netlify/functions/server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node netlify/functions/server.js"
   },
   "dependencies": {
     "express": "^4.19.2",
     "google-auth-library": "^9.11.0",
     "googleapis": "^140.0.1",
-    "qrcode": "^1.5.3"
+    "qrcode": "^1.5.3",
+    "serverless-http": "^3.2.0"
   }
 }

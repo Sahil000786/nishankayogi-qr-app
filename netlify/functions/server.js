@@ -3,36 +3,36 @@ const path = require('path');
 const qrcode = require('qrcode');
 const { google } = require('googleapis');
 const { GoogleAuth } = require('google-auth-library');
+const serverless = require('serverless-http');
 
 // --- UNIVERSAL CONFIGURATION ---
-// This is your Sheet ID.
-const SHEET_ID = '1aOv6KJBw4nbbbyqtkTcDWt5TNnWL5ttRMuQpejWobxA';
-// --- END OF CONFIGURATION ---
-
+const SHEET_ID = '1aOv6KJBw4nbbbyqtkTcDWt5TNnWL5ttRMuQpejWobxA'; // Your Sheet ID
 const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.use(express.json());
-app.use(express.static('public'));
+const router = express.Router();
 
 // This function smartly chooses the right authentication method.
 async function getAuthenticatedClient() {
     let auth;
     
-    // Check if we are running on Vercel and have the Base64 secret.
+    // Check if we are running on Netlify by looking for Netlify's environment variables.
     if (process.env.GOOGLE_CREDENTIALS_BASE64) {
-        console.log("Authenticating with Vercel Base64 credentials...");
-        // Decode the Base64 secret back into the original JSON text.
-        const credentialsJson = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf-8');
-        const credentials = JSON.parse(credentialsJson);
-        auth = new GoogleAuth({
-            credentials,
-            scopes: 'https://www.googleapis.com/auth/spreadsheets',
-        });
+        console.log("Authenticating with Netlify Base64 credentials...");
+        try {
+            const credentialsJson = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf-8');
+            const credentials = JSON.parse(credentialsJson);
+            auth = new GoogleAuth({
+                credentials,
+                scopes: 'https://www.googleapis.com/auth/spreadsheets',
+            });
+        } catch (err) {
+            console.error("Failed to parse Base64 credentials from Netlify:", err);
+            throw new Error("Could not parse Netlify credentials.");
+        }
     } else {
-        // If not on Vercel, we must be on a local computer. Use the credentials.json file.
+        // If not on Netlify, we must be on a local computer. Use the credentials.json file.
         console.log("Authenticating with local credentials.json file...");
-        const CREDENTIALS_PATH = path.join(__dirname, 'credentials.json');
+        // NOTE: The path is different now because server.js is in a subfolder.
+        const CREDENTIALS_PATH = path.join(__dirname, '../../../credentials.json');
         auth = new GoogleAuth({
             keyFile: CREDENTIALS_PATH,
             scopes: 'https://www.googleapis.com/auth/spreadsheets',
@@ -44,7 +44,7 @@ async function getAuthenticatedClient() {
         return google.sheets({ version: 'v4', auth: authClient });
     } catch (err) {
         console.error("AUTHENTICATION FAILED:", err.message);
-        throw new Error("Could not authenticate with Google. Check credentials and share settings.");
+        throw new Error("Could not authenticate with Google.");
     }
 }
 
@@ -52,7 +52,7 @@ async function getOrdersFromSheet(sheets) {
     try {
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: SHEET_ID,
-            range: 'Sheet1!A:C', // Ensure your sheet tab is named "Sheet1"
+            range: 'Sheet1!A:C',
         });
         const rows = response.data.values;
         if (!rows || rows.length < 2) return [];
@@ -64,13 +64,13 @@ async function getOrdersFromSheet(sheets) {
         });
     } catch (err) {
         console.error('GOOGLE SHEETS API ERROR:', err.message);
-        throw new Error(`Google Sheets Error: ${err.message}. Check SHEET_ID, Tab Name ('Sheet1'), and Share settings.`); 
+        throw new Error(`Google Sheets Error: ${err.message}.`); 
     }
 }
 
-// All the routes below are correct.
+// All your app's "routes" are now on this router object.
 
-app.get('/api/orders', async (req, res) => {
+router.get('/orders', async (req, res) => {
     try {
         const sheets = await getAuthenticatedClient();
         const orders = await getOrdersFromSheet(sheets);
@@ -80,7 +80,20 @@ app.get('/api/orders', async (req, res) => {
     }
 });
 
-app.get('/generate-qr', async (req, res) => {
+router.get('/order/:orderId', async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const sheets = await getAuthenticatedClient();
+        const orders = await getOrdersFromSheet(sheets);
+        const order = orders.find(o => o.order_id === orderId);
+        if (order) { res.json(order); } 
+        else { res.status(404).json({ error: 'Order not found' }); }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/generate-qr', async (req, res) => {
     const { order_id } = req.query;
     if (!order_id) return res.status(400).send('Error: Please provide an order_id.');
     try {
@@ -89,9 +102,8 @@ app.get('/generate-qr', async (req, res) => {
         const order = orders.find(o => o.order_id === order_id);
         if (!order) return res.status(404).send('Error: Order ID not found.');
         
-        const domain = req.headers.host.includes('localhost') 
-            ? `http://${req.headers.host}` 
-            : `https://${req.headers.host}`;
+        // This constructs the public URL for Netlify
+        const domain = `https://${req.headers.host}`;
         const urlToEncode = `${domain}/${order.customer_type}.html?order_id=${order_id}`;
         
         qrcode.toBuffer(urlToEncode, { errorCorrectionLevel: 'H' }, (err, buffer) => {
@@ -103,23 +115,9 @@ app.get('/generate-qr', async (req, res) => {
     }
 });
 
-app.get('/api/order/:orderId', async (req, res) => {
-    try {
-        const { orderId } = req.params;
-        const sheets = await getAuthenticatedClient();
-        const orders = await getOrdersFromSheet(sheets);
-        const order = orders.find(o => o.order_id === orderId);
-        if (order) {
-            res.json(order);
-        } else {
-            res.status(404).json({ error: 'Order not found' });
-        }
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
+// This sets up the router to work with Netlify
+app.use('/api', router);
+app.use('/.netlify/functions/server', router);
 
-app.listen(PORT, () => {
-    console.log(`✅ Server is running on http://localhost:${PORT}`);
-});
-
+// This makes the app exportable for Netlify
+module.exports.handler = serverless(app);
